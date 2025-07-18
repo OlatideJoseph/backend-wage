@@ -1,0 +1,59 @@
+name: 'Auto Wage Schedule'
+
+services:
+  web:
+    build: .
+    container_name: django_web
+    command: ["gunicorn", "auto_wage_schedule.wsgi:application", "-w", "4" "-b", "0.0.0.0:7000"]
+    volumes:
+      - .:/usr/local/app
+    ports:
+      - "7000:7000"
+    environment:
+      DATABASE_NAME: schedule
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgresql
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  celery:
+    build: .
+    container_name: celery_worker
+    command: celery -A auto_wage_schedule worker --loglevel=info
+    volumes:
+      - .:/usr/local/app
+    environment:
+      DATABASE_NAME: schedule
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgresql
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  db:
+    image: postgres:14
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: schedule
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgresql
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
